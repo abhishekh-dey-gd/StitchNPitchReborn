@@ -1,9 +1,9 @@
 import React from 'react';
-import { Trophy, Home, BarChart3, Download, Database } from 'lucide-react';
+import { Trophy, Home, BarChart3, Download, Database, Crown } from 'lucide-react';
 
 interface NavigationProps {
-  currentTab: 'selection' | 'winners';
-  onTabChange: (tab: 'selection' | 'winners') => void;
+  currentTab: 'selection' | 'winners' | 'elite-spiral';
+  onTabChange: (tab: 'selection' | 'winners' | 'elite-spiral') => void;
   winnerCount: number;
   onOpenWinHistoryDashboard: () => void;
   onOpenExportData: () => void;
@@ -73,6 +73,21 @@ const Navigation: React.FC<NavigationProps> = ({
                 </span>
               )}
             </button>
+
+            {winnerCount > 0 && (
+              <button
+                onClick={() => onTabChange('elite-spiral')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                  currentTab === 'elite-spiral'
+                    ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-lg'
+                    : 'text-purple-200 hover:text-white hover:bg-white hover:bg-opacity-10'
+                }`}
+              >
+                <Crown className="w-4 h-4" />
+                <span className="hidden sm:inline">Elite's Spiral</span>
+                <span className="sm:hidden">Elite</span>
+              </button>
+            )}
 
             {/* New Feature Buttons */}
             {winnerCount > 0 && (

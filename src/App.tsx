@@ -4,6 +4,7 @@ import RandomGuideSelector from './components/RandomGuideSelector';
 import PasswordModal from './components/PasswordModal';
 import WinnerDisplay from './components/WinnerDisplay';
 import WinnerHistory from './components/WinnerHistory';
+import EliteSpiralPanel from './components/EliteSpiralPanel';
 import WinHistoryDashboard from './components/WinHistoryDashboard';
 import ExportData from './components/ExportData';
 import BackupRestore from './components/BackupRestore';
@@ -11,9 +12,9 @@ import ConfettiAnimation from './components/ConfettiAnimation';
 import FailAnimation from './components/FailAnimation';
 import DynamicOrbs from './components/DynamicOrbs';
 import Navigation from './components/Navigation';
-import { Guide, Winner, Loser, ADMIN_PASSWORD } from './config/data';
+import { Guide, Winner, Loser, EliteSpiral, ADMIN_PASSWORD } from './config/data';
 
-type AppTab = 'selection' | 'winners';
+type AppTab = 'selection' | 'winners' | 'elite-spiral';
 
 function App() {
   const [currentTab, setCurrentTab] = useState<AppTab>('selection');
@@ -353,6 +354,9 @@ function App() {
           />
         )}
 
+        {currentTab === 'elite-spiral' && (
+          <EliteSpiralPanel winners={winners} />
+        )}
         {currentTab === 'winners' && (
           <WinnerHistory 
             winners={winners} 

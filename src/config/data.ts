@@ -28,6 +28,17 @@ export interface Loser {
   chat_ids?: string[];
 }
 
+export interface EliteSpiral {
+  id?: string;
+  winner_id: string;
+  guide_id: number;
+  name: string;
+  department: string;
+  supervisor: string;
+  timestamp: string;
+  chat_ids?: string[];
+}
+
 // ==========================================
 // CONFIGURATION - EDIT THESE VALUES
 // ==========================================

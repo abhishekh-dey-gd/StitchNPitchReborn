@@ -76,6 +76,41 @@ export type Database = {
           created_at?: string;
         };
       };
+      elite_spiral: {
+        Row: {
+          id: string;
+          winner_id: string;
+          guide_id: number;
+          name: string;
+          department: string;
+          supervisor: string;
+          timestamp: string;
+          chat_ids: string[];
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          winner_id: string;
+          guide_id: number;
+          name: string;
+          department: string;
+          supervisor: string;
+          timestamp: string;
+          chat_ids?: string[];
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          winner_id?: string;
+          guide_id?: number;
+          name?: string;
+          department?: string;
+          supervisor?: string;
+          timestamp?: string;
+          chat_ids?: string[];
+          created_at?: string;
+        };
+      };
     };
   };
 };
