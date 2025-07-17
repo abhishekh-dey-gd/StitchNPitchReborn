@@ -5,6 +5,7 @@ interface NavigationProps {
   currentTab: 'selection' | 'winners' | 'elite-spiral';
   onTabChange: (tab: 'selection' | 'winners' | 'elite-spiral') => void;
   winnerCount: number;
+  eliteWinnerCount: number;
   onOpenWinHistoryDashboard: () => void;
   onOpenExportData: () => void;
   onOpenBackupRestore: () => void;
@@ -14,6 +15,7 @@ const Navigation: React.FC<NavigationProps> = ({
   currentTab,
   onTabChange,
   winnerCount,
+  eliteWinnerCount,
   onOpenWinHistoryDashboard,
   onOpenExportData,
   onOpenBackupRestore
@@ -99,6 +101,11 @@ const Navigation: React.FC<NavigationProps> = ({
                 >
                   <BarChart3 className="w-4 h-4" />
                   <span className="hidden sm:inline">Analytics</span>
+                  {eliteWinnerCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-yellow-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                      E
+                    </span>
+                  )}
                 </button>
 
                 <button

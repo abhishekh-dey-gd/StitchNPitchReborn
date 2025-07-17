@@ -6,6 +6,7 @@ import WinnerDisplay from './components/WinnerDisplay';
 import WinnerHistory from './components/WinnerHistory';
 import EliteSpiralPanel from './components/EliteSpiralPanel';
 import WinHistoryDashboard from './components/WinHistoryDashboard';
+import EliteWinnersDashboard from './components/EliteWinnersDashboard';
 import ExportData from './components/ExportData';
 import BackupRestore from './components/BackupRestore';
 import ConfettiAnimation from './components/ConfettiAnimation';
@@ -22,6 +23,7 @@ function App() {
   const [currentWinner, setCurrentWinner] = useState<Winner | null>(null);
   const [winners, setWinners] = useState<Winner[]>([]);
   const [losers, setLosers] = useState<Loser[]>([]);
+  const [eliteWinners, setEliteWinners] = useState<EliteSpiral[]>([]);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [showFailAnimation, setShowFailAnimation] = useState(false);
@@ -30,13 +32,16 @@ function App() {
   
   // New modal states
   const [isWinHistoryDashboardOpen, setIsWinHistoryDashboardOpen] = useState(false);
+  const [isEliteWinnersDashboardOpen, setIsEliteWinnersDashboardOpen] = useState(false);
   const [isExportDataOpen, setIsExportDataOpen] = useState(false);
   const [isBackupRestoreOpen, setIsBackupRestoreOpen] = useState(false);
+  const [showEliteAnalytics, setShowEliteAnalytics] = useState(false);
 
   // Load winners from Supabase on component mount
   useEffect(() => {
     loadWinners();
     loadLosers();
+    loadEliteWinners();
   }, []);
 
   const loadWinners = async () => {
@@ -107,6 +112,36 @@ function App() {
     }
   };
 
+  const loadEliteWinners = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('elite_spiral')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error loading elite winners:', error);
+        // Fallback to localStorage if Supabase fails
+        const savedEliteWinners = localStorage.getItem('stitchAndPitchEliteWinners');
+        if (savedEliteWinners) {
+          const localEliteWinners = JSON.parse(savedEliteWinners);
+          localEliteWinners.sort((a: EliteSpiral, b: EliteSpiral) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+          setEliteWinners(localEliteWinners);
+        }
+      } else {
+        setEliteWinners(data || []);
+        localStorage.setItem('stitchAndPitchEliteWinners', JSON.stringify(data || []));
+      }
+    } catch (error) {
+      console.error('Error connecting to database:', error);
+      const savedEliteWinners = localStorage.getItem('stitchAndPitchEliteWinners');
+      if (savedEliteWinners) {
+        const localEliteWinners = JSON.parse(savedEliteWinners);
+        localEliteWinners.sort((a: EliteSpiral, b: EliteSpiral) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        setEliteWinners(localEliteWinners);
+      }
+    }
+  };
   const saveWinnerToDatabase = async (winner: Winner) => {
     try {
       const { data, error } = await supabase
@@ -201,7 +236,7 @@ function App() {
     }
   };
 
-  const handleRestoreWinners = async (restoredWinners: Winner[], restoredLosers?: Loser[]) => {
+  const handleRestoreWinners = async (restoredWinners: Winner[], restoredLosers?: Loser[], restoredEliteWinners?: EliteSpiral[]) => {
     try {
       // First, purge existing data
       const { error: winnersError } = await supabase
@@ -212,6 +247,13 @@ function App() {
       if (restoredLosers) {
         const { error: losersError } = await supabase
           .from('losers')
+          .delete()
+          .gte('created_at', '1900-01-01');
+      }
+      
+      if (restoredEliteWinners) {
+        const { error: eliteError } = await supabase
+          .from('elite_spiral')
           .delete()
           .gte('created_at', '1900-01-01');
       }
@@ -227,9 +269,16 @@ function App() {
         }
       }
       
+      if (restoredEliteWinners) {
+        for (const elite of restoredEliteWinners) {
+          await saveEliteWinnerToDatabase(elite);
+        }
+      }
+      
       // Reload to get fresh data
       await loadWinners();
       await loadLosers();
+      await loadEliteWinners();
     } catch (error) {
       console.error('Error restoring winners:', error);
       // Fallback to localStorage
@@ -239,9 +288,47 @@ function App() {
         setLosers(restoredLosers);
         localStorage.setItem('stitchAndPitchLosers', JSON.stringify(restoredLosers));
       }
+      if (restoredEliteWinners) {
+        setEliteWinners(restoredEliteWinners);
+        localStorage.setItem('stitchAndPitchEliteWinners', JSON.stringify(restoredEliteWinners));
+      }
     }
   };
 
+  const saveEliteWinnerToDatabase = async (elite: EliteSpiral) => {
+    try {
+      const { data, error } = await supabase
+        .from('elite_spiral')
+        .insert([{
+          winner_id: elite.winner_id,
+          guide_id: elite.guide_id,
+          name: elite.name,
+          department: elite.department,
+          supervisor: elite.supervisor,
+          timestamp: elite.timestamp,
+          chat_ids: elite.chat_ids || []
+        }])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error saving elite winner to database:', error);
+        // Fallback to localStorage
+        const updatedEliteWinners = [...eliteWinners, elite].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        setEliteWinners(updatedEliteWinners);
+        localStorage.setItem('stitchAndPitchEliteWinners', JSON.stringify(updatedEliteWinners));
+      } else {
+        // Reload elite winners from database to get the latest data
+        await loadEliteWinners();
+      }
+    } catch (error) {
+      console.error('Error connecting to database:', error);
+      // Fallback to localStorage
+      const updatedEliteWinners = [...eliteWinners, elite].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      setEliteWinners(updatedEliteWinners);
+      localStorage.setItem('stitchAndPitchEliteWinners', JSON.stringify(updatedEliteWinners));
+    }
+  };
   const handleGuideSelected = (guide: Guide) => {
     // Extract chat IDs from the guide object if they exist
     const { chatIds, ...guideData } = guide as Guide & { chatIds?: string[] };
@@ -340,6 +427,7 @@ function App() {
         currentTab={currentTab}
         onTabChange={setCurrentTab}
         winnerCount={winners.length}
+        eliteWinnerCount={eliteWinners.length}
         onOpenWinHistoryDashboard={() => setIsWinHistoryDashboardOpen(true)}
         onOpenExportData={() => setIsExportDataOpen(true)}
         onOpenBackupRestore={() => setIsBackupRestoreOpen(true)}
@@ -355,7 +443,11 @@ function App() {
         )}
 
         {currentTab === 'elite-spiral' && (
-          <EliteSpiralPanel winners={winners} />
+          <EliteSpiralPanel 
+            winners={winners} 
+            eliteWinners={eliteWinners}
+            onEliteWinnerAdded={saveEliteWinnerToDatabase}
+          />
         )}
         {currentTab === 'winners' && (
           <WinnerHistory 
@@ -398,6 +490,9 @@ function App() {
         isOpen={isWinHistoryDashboardOpen}
         onClose={() => setIsWinHistoryDashboardOpen(false)}
         winners={winners}
+        eliteWinners={eliteWinners}
+        showEliteAnalytics={showEliteAnalytics}
+        onToggleAnalytics={() => setShowEliteAnalytics(!showEliteAnalytics)}
       />
 
       <ExportData
@@ -405,6 +500,7 @@ function App() {
         onClose={() => setIsExportDataOpen(false)}
         winners={winners}
         losers={losers}
+        eliteWinners={eliteWinners}
       />
 
       <BackupRestore
@@ -412,6 +508,7 @@ function App() {
         onClose={() => setIsBackupRestoreOpen(false)}
         winners={winners}
         losers={losers}
+        eliteWinners={eliteWinners}
         onRestoreWinners={handleRestoreWinners}
       />
 

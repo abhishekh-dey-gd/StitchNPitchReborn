@@ -1,13 +1,14 @@
 import React, { useState, useRef } from 'react';
 import { Download, Upload, RotateCcw, Save, X, CheckCircle, AlertTriangle, Database, Clock, Lock } from 'lucide-react';
-import { Winner, Loser, ADMIN_PASSWORD } from '../config/data';
+import { Winner, Loser, EliteSpiral, ADMIN_PASSWORD } from '../config/data';
 
 interface BackupRestoreProps {
   isOpen: boolean;
   onClose: () => void;
   winners: Winner[];
   losers: Loser[];
-  onRestoreWinners: (winners: Winner[], losers?: Loser[]) => void;
+  eliteWinners: EliteSpiral[];
+  onRestoreWinners: (winners: Winner[], losers?: Loser[], eliteWinners?: EliteSpiral[]) => void;
 }
 
 interface BackupData {
@@ -15,9 +16,11 @@ interface BackupData {
   timestamp: string;
   totalWinners: number;
   totalLosers: number;
+  totalEliteWinners: number;
   departments: string[];
   winners: Winner[];
   losers: Loser[];
+  eliteWinners: EliteSpiral[];
   metadata: {
     exportedBy: string;
     applicationVersion: string;
@@ -30,6 +33,7 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({
   onClose, 
   winners, 
   losers,
+  eliteWinners,
   onRestoreWinners 
 }) => {
   const [activeTab, setActiveTab] = useState<'backup' | 'restore'>('backup');
@@ -80,13 +84,15 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({
       timestamp: new Date().toISOString(),
       totalWinners: winners.length,
       totalLosers: losers.length,
-      departments: [...new Set([...winners.map(w => w.department), ...losers.map(l => l.department)])],
+      totalEliteWinners: eliteWinners.length,
+      departments: [...new Set([...winners.map(w => w.department), ...losers.map(l => l.department), ...eliteWinners.map(e => e.department)])],
       winners: winners,
       losers: losers,
+      eliteWinners: eliteWinners,
       metadata: {
         exportedBy: 'Stitch n Pitch Contest System',
         applicationVersion: '1.0.0',
-        databaseSchema: 'winners_losers_v2'
+        databaseSchema: 'winners_losers_elite_v3'
       }
     };
 
@@ -151,7 +157,7 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({
         const backupData: BackupData = JSON.parse(content);
         
         // Validate backup structure
-        if (!backupData.version || !backupData.winners || !Array.isArray(backupData.winners)) {
+        if (!backupData.version || !backupData.winners || !Array.isArray(backupData.winners) || !backupData.eliteWinners) {
           throw new Error('Invalid backup file structure');
         }
 
@@ -190,13 +196,22 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({
       const validLosers = restorePreview.losers ? restorePreview.losers.filter(loser => 
         loser.name && loser.department && loser.supervisor && loser.timestamp
       ) : [];
+      
+      const validEliteWinners = restorePreview.eliteWinners ? restorePreview.eliteWinners.filter(elite => 
+        elite.name && elite.department && elite.supervisor && elite.timestamp
+      ) : [];
 
       if (validWinners.length !== restorePreview.winners.length || 
-          (restorePreview.losers && validLosers.length !== restorePreview.losers.length)) {
-        console.warn('Some invalid winner records were filtered out');
+          (restorePreview.losers && validLosers.length !== restorePreview.losers.length) ||
+          (restorePreview.eliteWinners && validEliteWinners.length !== restorePreview.eliteWinners.length)) {
+        console.warn('Some invalid records were filtered out');
       }
 
-      onRestoreWinners(validWinners, validLosers.length > 0 ? validLosers : undefined);
+      onRestoreWinners(
+        validWinners, 
+        validLosers.length > 0 ? validLosers : undefined,
+        validEliteWinners.length > 0 ? validEliteWinners : undefined
+      );
       setProcessSuccess(true);
       
       setTimeout(() => {
@@ -413,17 +428,27 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({
                     <div className="text-blue-100">Total Winners</div>
                   </div>
                   <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-4 text-white">
-                    <div className="text-2xl font-bold">{[...new Set(winners.map(w => w.department))].length}</div>
-                    <div className="text-green-100">Departments</div>
+                    <div className="text-2xl font-bold">{losers.length}</div>
+                    <div className="text-green-100">Total Losers</div>
                   </div>
                   <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl p-4 text-white">
+                    <div className="text-2xl font-bold">{eliteWinners.length}</div>
+                    <div className="text-purple-100">Elite Winners</div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <div className="bg-gradient-to-r from-orange-500 to-yellow-600 rounded-xl p-4 text-white">
+                    <div className="text-2xl font-bold">{[...new Set([...winners.map(w => w.department), ...losers.map(l => l.department), ...eliteWinners.map(e => e.department)])].length}</div>
+                    <div className="text-orange-100">Departments</div>
+                  </div>
+                  <div className="bg-gradient-to-r from-pink-500 to-red-600 rounded-xl p-4 text-white">
                     <div className="text-lg font-bold">
-                      {winners.length > 0 
-                        ? new Date(Math.max(...winners.map(w => new Date(w.timestamp).getTime()))).toLocaleDateString()
+                      {[...winners, ...losers, ...eliteWinners].length > 0 
+                        ? new Date(Math.max(...[...winners, ...losers, ...eliteWinners].map(w => new Date(w.timestamp).getTime()))).toLocaleDateString()
                         : 'No data'
                       }
                     </div>
-                    <div className="text-purple-100">Last Winner</div>
+                    <div className="text-pink-100">Last Activity</div>
                   </div>
                 </div>
               </div>
@@ -440,6 +465,10 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({
                     <div className="flex items-center gap-2 md:gap-3">
                       <CheckCircle className="w-5 h-5 text-green-400" />
                       <span>Complete loser records</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-5 h-5 text-green-400" />
+                      <span>Complete elite winner records</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <CheckCircle className="w-5 h-5 text-green-400" />
@@ -555,6 +584,14 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({
                         <span className="text-white font-medium">{restorePreview.totalWinners}</span>
                       </div>
                       <div className="flex justify-between text-blue-200">
+                        <span>Total Losers:</span>
+                        <span className="text-white font-medium">{restorePreview.totalLosers}</span>
+                      </div>
+                      <div className="flex justify-between text-blue-200">
+                        <span>Elite Winners:</span>
+                        <span className="text-white font-medium">{restorePreview.totalEliteWinners || 0}</span>
+                      </div>
+                      <div className="flex justify-between text-blue-200">
                         <span>Departments:</span>
                         <span className="text-white font-medium">{restorePreview.departments.length}</span>
                       </div>
@@ -570,6 +607,10 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({
                         <span className="text-white font-medium">{winners.length}</span>
                       </div>
                       <div className="flex justify-between text-blue-200">
+                        <span>Current Elite:</span>
+                        <span className="text-white font-medium">{eliteWinners.length}</span>
+                      </div>
+                      <div className="flex justify-between text-blue-200">
                         <span>Action:</span>
                         <span className="text-yellow-300 font-medium">Replace Current Data</span>
                       </div>
@@ -583,7 +624,7 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({
                       <div>
                         <p className="text-yellow-200 font-semibold">Warning</p>
                         <p className="text-yellow-100 text-sm">
-                          This will replace all current winner data. Make sure to create a backup first if needed.
+                          This will replace all current contest data (winners, losers, elite winners). Make sure to create a backup first if needed.
                         </p>
                       </div>
                     </div>

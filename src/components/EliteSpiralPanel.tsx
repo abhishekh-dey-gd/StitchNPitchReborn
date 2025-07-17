@@ -6,9 +6,11 @@ import PasswordModal from './PasswordModal';
 
 interface EliteSpiralPanelProps {
   winners: Winner[];
+  eliteWinners: EliteSpiral[];
+  onEliteWinnerAdded: (elite: EliteSpiral) => void;
 }
 
-const EliteSpiralPanel: React.FC<EliteSpiralPanelProps> = ({ winners }) => {
+const EliteSpiralPanel: React.FC<EliteSpiralPanelProps> = ({ winners, eliteWinners, onEliteWinnerAdded }) => {
   const [selectedDepartment, setSelectedDepartment] = useState<string>('All');
   const [filteredWinners, setFilteredWinners] = useState<Winner[]>([]);
   const [isSpinning, setIsSpinning] = useState(false);
@@ -16,15 +18,10 @@ const EliteSpiralPanel: React.FC<EliteSpiralPanelProps> = ({ winners }) => {
   const [selectedWinner, setSelectedWinner] = useState<Winner | null>(null);
   const [chatIds, setChatIds] = useState<string[]>(['']);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-  const [eliteSpiralEntries, setEliteSpiralEntries] = useState<EliteSpiral[]>([]);
-  const [loading, setLoading] = useState(true);
 
   // Get unique departments from winners
   const departments = [...new Set(winners.map(winner => winner.department))].sort();
 
-  useEffect(() => {
-    loadEliteSpiralEntries();
-  }, []);
 
   useEffect(() => {
     // Filter winners based on selected department
@@ -35,69 +32,6 @@ const EliteSpiralPanel: React.FC<EliteSpiralPanelProps> = ({ winners }) => {
     }
   }, [selectedDepartment, winners]);
 
-  const loadEliteSpiralEntries = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('elite_spiral')
-        .select('*')
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        console.error('Error loading elite spiral entries:', error);
-        // Fallback to localStorage
-        const saved = localStorage.getItem('eliteSpiralEntries');
-        if (saved) {
-          setEliteSpiralEntries(JSON.parse(saved));
-        }
-      } else {
-        setEliteSpiralEntries(data || []);
-        localStorage.setItem('eliteSpiralEntries', JSON.stringify(data || []));
-      }
-    } catch (error) {
-      console.error('Error connecting to database:', error);
-      // Fallback to localStorage
-      const saved = localStorage.getItem('eliteSpiralEntries');
-      if (saved) {
-        setEliteSpiralEntries(JSON.parse(saved));
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveEliteSpiralEntry = async (entry: EliteSpiral) => {
-    try {
-      const { data, error } = await supabase
-        .from('elite_spiral')
-        .insert([{
-          winner_id: entry.winner_id,
-          guide_id: entry.guide_id,
-          name: entry.name,
-          department: entry.department,
-          supervisor: entry.supervisor,
-          timestamp: entry.timestamp,
-          chat_ids: entry.chat_ids || []
-        }])
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error saving elite spiral entry:', error);
-        // Fallback to localStorage
-        const updated = [...eliteSpiralEntries, entry];
-        setEliteSpiralEntries(updated);
-        localStorage.setItem('eliteSpiralEntries', JSON.stringify(updated));
-      } else {
-        await loadEliteSpiralEntries();
-      }
-    } catch (error) {
-      console.error('Error connecting to database:', error);
-      // Fallback to localStorage
-      const updated = [...eliteSpiralEntries, entry];
-      setEliteSpiralEntries(updated);
-      localStorage.setItem('eliteSpiralEntries', JSON.stringify(updated));
-    }
-  };
 
   const addChatIdField = () => {
     if (chatIds.length < 10) {
@@ -170,7 +104,7 @@ const EliteSpiralPanel: React.FC<EliteSpiralPanelProps> = ({ winners }) => {
         chat_ids: validChatIds
       };
       
-      await saveEliteSpiralEntry(eliteEntry);
+      await onEliteWinnerAdded(eliteEntry);
       
       // Reset form
       setSelectedWinner(null);
@@ -186,16 +120,6 @@ const EliteSpiralPanel: React.FC<EliteSpiralPanelProps> = ({ winners }) => {
     return password === ADMIN_PASSWORD;
   };
 
-  if (loading) {
-    return (
-      <div className="pt-20 pb-8 px-4">
-        <div className="max-w-6xl mx-auto text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="text-white text-xl">Loading Elite's Spiral...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="pt-20 pb-8 px-4">
@@ -444,14 +368,14 @@ const EliteSpiralPanel: React.FC<EliteSpiralPanelProps> = ({ winners }) => {
         )}
 
         {/* Elite Spiral History */}
-        {eliteSpiralEntries.length > 0 && (
+        {eliteWinners.length > 0 && (
           <div className="bg-white bg-opacity-10 backdrop-blur-md rounded-2xl p-6 border border-white border-opacity-20">
             <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
               <Crown className="w-6 h-6 text-yellow-400" />
-              Elite Spiral History ({eliteSpiralEntries.length})
+              Elite Spiral History ({eliteWinners.length})
             </h3>
             <div className="grid gap-4">
-              {eliteSpiralEntries.slice(-5).reverse().map((entry, index) => (
+              {eliteWinners.slice(-5).reverse().map((entry, index) => (
                 <div key={entry.id} className="bg-white bg-opacity-10 rounded-xl p-4 backdrop-blur-sm">
                   <div className="flex items-center justify-between">
                     <div>
@@ -460,7 +384,7 @@ const EliteSpiralPanel: React.FC<EliteSpiralPanelProps> = ({ winners }) => {
                       <p className="text-sm text-purple-300">{new Date(entry.timestamp).toLocaleString()}</p>
                     </div>
                     <div className="text-right">
-                      <div className="text-yellow-400 font-bold">#{eliteSpiralEntries.length - index}</div>
+                      <div className="text-yellow-400 font-bold">#{eliteWinners.length - index}</div>
                       {entry.chat_ids && entry.chat_ids.length > 0 && (
                         <div className="text-xs text-purple-300 mt-1">
                           {entry.chat_ids.length} Chat ID{entry.chat_ids.length !== 1 ? 's' : ''}
