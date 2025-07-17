@@ -100,7 +100,7 @@ const EliteSpiralPanel: React.FC<EliteSpiralPanelProps> = ({ winners }) => {
   };
 
   const addChatIdField = () => {
-    if (chatIds.length < 5) {
+    if (chatIds.length < 10) {
       setChatIds([...chatIds, '']);
     }
   };
@@ -392,7 +392,7 @@ const EliteSpiralPanel: React.FC<EliteSpiralPanelProps> = ({ winners }) => {
               <div className="flex items-center gap-2 mb-4">
                 <MessageCircle className="w-5 h-5 text-purple-300" />
                 <label className="text-lg font-medium text-white">
-                  Chat IDs (Optional - Max 5)
+                  Chat IDs (Optional - Max 10)
                 </label>
               </div>
               
@@ -418,7 +418,7 @@ const EliteSpiralPanel: React.FC<EliteSpiralPanelProps> = ({ winners }) => {
                   </div>
                 ))}
                 
-                {chatIds.length < 5 && (
+                {chatIds.length < 10 && (
                   <button
                     type="button"
                     onClick={addChatIdField}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Download, FileText, FileSpreadsheet, Calendar, Users, Trophy, X, CheckCircle, Lock } from 'lucide-react';
-import { Winner, Loser, GUIDES, ADMIN_PASSWORD } from '../config/data';
+import { Winner, Loser, EliteSpiral, GUIDES, ADMIN_PASSWORD } from '../config/data';
 import jsPDF from 'jspdf';
 
 interface ExportDataProps {
@@ -8,11 +8,12 @@ interface ExportDataProps {
   onClose: () => void;
   winners: Winner[];
   losers: Loser[];
+  eliteWinners: EliteSpiral[];
 }
 
-type ExportType = 'winners-csv' | 'winners-pdf' | 'losers-csv' | 'losers-pdf' | 'guides-csv' | 'complete-data-csv';
+type ExportType = 'winners-csv' | 'winners-pdf' | 'losers-csv' | 'losers-pdf' | 'elite-csv' | 'elite-pdf' | 'guides-csv' | 'complete-data-csv';
 
-const ExportData: React.FC<ExportDataProps> = ({ isOpen, onClose, winners, losers }) => {
+const ExportData: React.FC<ExportDataProps> = ({ isOpen, onClose, winners, losers, eliteWinners }) => {
   const [selectedExport, setSelectedExport] = useState<ExportType>('winners-csv');
   const [isExporting, setIsExporting] = useState(false);
   const [exportSuccess, setExportSuccess] = useState(false);
@@ -52,6 +53,20 @@ const ExportData: React.FC<ExportDataProps> = ({ isOpen, onClose, winners, loser
       color: 'from-purple-500 to-indigo-600'
     },
     {
+      id: 'elite-csv' as ExportType,
+      title: 'Elite Winners (CSV)',
+      description: 'Export elite spiral winners in CSV format',
+      icon: FileSpreadsheet,
+      color: 'from-yellow-500 to-orange-600'
+    },
+    {
+      id: 'elite-pdf' as ExportType,
+      title: 'Elite Winners (PDF)',
+      description: 'Professional PDF report with elite winners',
+      icon: FileText,
+      color: 'from-orange-500 to-red-600'
+    },
+    {
       id: 'guides-csv' as ExportType,
       title: 'Full Guide Dump',
       description: 'Complete guide database for backup',
@@ -61,7 +76,7 @@ const ExportData: React.FC<ExportDataProps> = ({ isOpen, onClose, winners, loser
     {
       id: 'complete-data-csv' as ExportType,
       title: 'Full Winners and Losers Data',
-      description: 'All winners and losers with complete data',
+      description: 'All winners, losers, and elite winners with complete data',
       icon: Trophy,
       color: 'from-indigo-500 to-purple-600'
     }
@@ -294,6 +309,94 @@ const ExportData: React.FC<ExportDataProps> = ({ isOpen, onClose, winners, loser
     
     pdf.save(`stitch-n-pitch-losers-report-${new Date().toISOString().split('T')[0]}.pdf`);
   };
+
+  const generateElitePDF = () => {
+    const pdf = new jsPDF();
+    const pageWidth = pdf.internal.pageSize.width;
+    const pageHeight = pdf.internal.pageSize.height;
+    
+    // Header
+    pdf.setFontSize(24);
+    pdf.setTextColor(30, 58, 138); // Blue color
+    pdf.text('Stitch n Pitch Contest', pageWidth / 2, 30, { align: 'center' });
+    
+    pdf.setFontSize(16);
+    pdf.setTextColor(75, 85, 99); // Gray color
+    pdf.text('Elite Winners Report', pageWidth / 2, 45, { align: 'center' });
+    
+    // Date
+    pdf.setFontSize(10);
+    pdf.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth / 2, 55, { align: 'center' });
+    
+    // Summary Statistics
+    pdf.setFontSize(14);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text('Summary Statistics', 20, 75);
+    
+    const departments = [...new Set(eliteWinners.map(w => w.department))];
+    const stats = [
+      `Total Elite Winners: ${eliteWinners.length}`,
+      `Departments Represented: ${departments.length}`,
+      `Elite Period: ${eliteWinners.length > 0 ? 
+        `${new Date(Math.min(...eliteWinners.map(w => new Date(w.timestamp).getTime()))).toLocaleDateString()} - ${new Date(Math.max(...eliteWinners.map(w => new Date(w.timestamp).getTime()))).toLocaleDateString()}` 
+        : 'No elite winners yet'}`
+    ];
+    
+    pdf.setFontSize(10);
+    stats.forEach((stat, index) => {
+      pdf.text(stat, 25, 90 + (index * 10));
+    });
+    
+    // Department Breakdown
+    pdf.setFontSize(14);
+    pdf.text('Department Breakdown', 20, 130);
+    
+    const departmentCounts = departments.map(dept => ({
+      department: dept,
+      count: eliteWinners.filter(w => w.department === dept).length
+    }));
+    
+    pdf.setFontSize(10);
+    departmentCounts.forEach((dept, index) => {
+      pdf.text(`${dept.department}: ${dept.count} elite winners`, 25, 145 + (index * 8));
+    });
+    
+    // Elite Winners List
+    let yPosition = 145 + (departmentCounts.length * 8) + 20;
+    
+    if (yPosition > pageHeight - 50) {
+      pdf.addPage();
+      yPosition = 30;
+    }
+    
+    pdf.setFontSize(14);
+    pdf.text('Complete Elite Winners List', 20, yPosition);
+    yPosition += 15;
+    
+    pdf.setFontSize(9);
+    eliteWinners.forEach((winner, index) => {
+      if (yPosition > pageHeight - 30) {
+        pdf.addPage();
+        yPosition = 30;
+      }
+      
+      const winnerText = `${index + 1}. ${winner.name} (${winner.department}) - ${new Date(winner.timestamp).toLocaleDateString()}`;
+      pdf.text(winnerText, 25, yPosition);
+      yPosition += 8;
+    });
+    
+    // Footer
+    const totalPages = pdf.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      pdf.setPage(i);
+      pdf.setFontSize(8);
+      pdf.setTextColor(128, 128, 128);
+      pdf.text(`Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+    }
+    
+    pdf.save(`stitch-n-pitch-elite-winners-report-${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   const performExport = async () => {
     setIsExporting(true);
     
@@ -333,6 +436,24 @@ const ExportData: React.FC<ExportDataProps> = ({ isOpen, onClose, winners, loser
           
         case 'losers-pdf':
           generateLosersPDF();
+          break;
+          
+        case 'elite-csv':
+          const eliteData = eliteWinners.map(winner => ({
+            'Elite #': eliteWinners.indexOf(winner) + 1,
+            'Name': winner.name,
+            'Department': winner.department,
+            'Supervisor': winner.supervisor,
+            'Selected Date': new Date(winner.timestamp).toLocaleDateString(),
+            'Selected Time': new Date(winner.timestamp).toLocaleTimeString(),
+            'Guide ID': winner.guide_id,
+            'Winner ID': winner.winner_id
+          }));
+          generateCSV(eliteData, `stitch-n-pitch-elite-winners-${new Date().toISOString().split('T')[0]}.csv`);
+          break;
+          
+        case 'elite-pdf':
+          generateElitePDF();
           break;
           
         case 'guides-csv':
@@ -377,9 +498,30 @@ const ExportData: React.FC<ExportDataProps> = ({ isOpen, onClose, winners, loser
               'Chat ID 3': loser.chat_ids?.[2] || '',
               'Chat ID 4': loser.chat_ids?.[3] || '',
               'Chat ID 5': loser.chat_ids?.[4] || ''
+            })),
+            ...eliteWinners.map(elite => ({
+              'Type': 'Elite Winner',
+              'Entry #': eliteWinners.indexOf(elite) + 1,
+              'Name': elite.name,
+              'Department': elite.department,
+              'Supervisor': elite.supervisor,
+              'Selected Date': new Date(elite.timestamp).toLocaleDateString(),
+              'Selected Time': new Date(elite.timestamp).toLocaleTimeString(),
+              'Guide ID': elite.guide_id,
+              'Winner ID': elite.winner_id,
+              'Chat ID 1': elite.chat_ids?.[0] || '',
+              'Chat ID 2': elite.chat_ids?.[1] || '',
+              'Chat ID 3': elite.chat_ids?.[2] || '',
+              'Chat ID 4': elite.chat_ids?.[3] || '',
+              'Chat ID 5': elite.chat_ids?.[4] || '',
+              'Chat ID 6': elite.chat_ids?.[5] || '',
+              'Chat ID 7': elite.chat_ids?.[6] || '',
+              'Chat ID 8': elite.chat_ids?.[7] || '',
+              'Chat ID 9': elite.chat_ids?.[8] || '',
+              'Chat ID 10': elite.chat_ids?.[9] || ''
             }))
           ];
-          generateCSV(completeData, `stitch-n-pitch-complete-data-${new Date().toISOString().split('T')[0]}.csv`);
+          generateCSV(completeData, `stitch-n-pitch-complete-contest-data-${new Date().toISOString().split('T')[0]}.csv`);
           break;
       }
       
@@ -604,6 +746,18 @@ const ExportData: React.FC<ExportDataProps> = ({ isOpen, onClose, winners, loser
                   <p className="text-sm">Includes: Summary stats, department breakdown, formatted loser list</p>
                 </div>
               )}
+              {selectedExport === 'elite-csv' && (
+                <div>
+                  <p className="mb-2">👑 <strong>{eliteWinners.length}</strong> elite winners will be exported</p>
+                  <p className="text-sm">Includes: Name, Department, Supervisor, Selection Date & Time, Guide ID, Winner ID</p>
+                </div>
+              )}
+              {selectedExport === 'elite-pdf' && (
+                <div>
+                  <p className="mb-2">📄 Professional PDF report with elite winners statistics</p>
+                  <p className="text-sm">Includes: Summary stats, department breakdown, formatted elite winner list</p>
+                </div>
+              )}
               {selectedExport === 'guides-csv' && (
                 <div>
                   <p className="mb-2">👥 <strong>{GUIDES.length}</strong> guides will be exported</p>
@@ -612,8 +766,8 @@ const ExportData: React.FC<ExportDataProps> = ({ isOpen, onClose, winners, loser
               )}
               {selectedExport === 'complete-data-csv' && (
                 <div>
-                  <p className="mb-2">🎯 <strong>{winners.length + losers.length}</strong> total entries will be exported</p>
-                  <p className="text-sm">Includes: All winners and losers with chat IDs, complete contest data</p>
+                  <p className="mb-2">🎯 <strong>{winners.length + losers.length + eliteWinners.length}</strong> total entries will be exported</p>
+                  <p className="text-sm">Includes: All winners, losers, and elite winners with chat IDs, complete contest data</p>
                 </div>
               )}
             </div>
